@@ -20,18 +20,17 @@
 <body>
 
 <div id="app">
-  <!-- LOGIN SCREEN -->
-  <div id="loginSection" class="card">
-    <h2>Lager-Zugang</h2>
-    <p>Bitte zuerst den QR-Code an der Tür scannen.</p>
-    <button class="btn-main" onclick="startScanner('LOGIN')">📷 Tür-Code scannen</button>
+  <!-- SPERR-BILDSCHIRM (wenn kein gültiges Token in URL/Session) -->
+  <div id="lockSection" class="card">
+    <h2>Zugriff verweigert</h2>
+    <p>Bitte den QR-Code an der Lagertür scannen, um die App zu öffnen.</p>
   </div>
 
   <!-- MAIN SCANNER SCREEN -->
   <div id="scanSection" class="card" style="display:none;">
     <h2>Lagerbuchung</h2>
     <p id="sessionInfo" style="color: #28a745; font-size: 13px; font-weight: bold;"></p>
-    <button class="btn-main" onclick="startScanner('ARTIKEL')">📷 Regal / Artikel scannen</button>
+    <button class="btn-main" onclick="startScanner()">📷 Regal / Artikel scannen</button>
   </div>
 
   <!-- KAMERA DISPLAY -->
@@ -53,38 +52,49 @@
 </div>
 
 <script>
-  // 1. Hier deine Web-App-URL aus Google Apps Script eintragen (endet auf /exec)
+  // 1. Deine Apps-Script Exec-URL
   const GOOGLE_SCRIPT_URL = "DEINE_APPS_SCRIPT_WEB_APP_URL_HIER_EINSETZEN";
   
-  // 2. Den Text eintragen, der auf dem QR-Code an der Tür gedruckt ist
-  const DOOR_SECRET_CODE = "TUER-LAGER-2026"; 
+  // 2. Erwarteter Secret-Code
+  const VALID_SECRET = "TUER-LAGER-2026"; 
 
   let html5QrcodeScanner = null;
-  let scanMode = null;
   let currentArtikel = null;
+  let activeToken = null;
 
-  window.onload = checkSession;
+  window.onload = checkAuth;
 
-  function checkSession() {
+  function checkAuth() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tokenFromUrl = urlParams.get('token');
+    const storedToken = sessionStorage.getItem("authToken");
     const authTime = sessionStorage.getItem("authTime");
     const now = new Date().getTime();
 
-    // Session-Dauer: 30 Minuten (30 * 60 * 1000 ms)
-    if (authTime && (now - authTime < 1800000)) {
-      document.getElementById("loginSection").style.display = "none";
+    // Validierung: Wenn Token aus URL oder Session mit VALID_SECRET übereinstimmt
+    if (tokenFromUrl === VALID_SECRET || (storedToken === VALID_SECRET && authTime && (now - authTime < 1800000))) {
+      activeToken = VALID_SECRET;
+      sessionStorage.setItem("authToken", VALID_SECRET);
+      sessionStorage.setItem("authTime", now);
+
+      document.getElementById("lockSection").style.display = "none";
       document.getElementById("scanSection").style.display = "block";
-      const remainingMin = Math.round((1800000 - (now - authTime)) / 60000);
-      document.getElementById("sessionInfo").innerText = "Aktiv für " + remainingMin + " Min.";
+      
+      // URL-Parameter bereinigen, damit der Token nicht in der Adresszeile stehen bleibt
+      if (tokenFromUrl) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
+      document.getElementById("sessionInfo").innerText = "Zugang aktiv (30 Min.)";
     } else {
-      sessionStorage.removeItem("authTime");
-      document.getElementById("loginSection").style.display = "block";
+      sessionStorage.clear();
+      document.getElementById("lockSection").style.display = "block";
       document.getElementById("scanSection").style.display = "none";
       document.getElementById("artikelSection").style.display = "none";
     }
   }
 
-  async function startScanner(mode) {
-    scanMode = mode;
+  async function startScanner() {
     document.getElementById("status").innerText = "Starte Kamera...";
     document.getElementById("reader").style.display = "block";
 
@@ -107,53 +117,37 @@
   async function onScanSuccess(decodedText) {
     await html5QrcodeScanner.stop();
     document.getElementById("reader").style.display = "none";
+    document.getElementById("status").innerText = "Lade Artikel...";
 
-    if (scanMode === 'LOGIN') {
-      if (decodedText === DOOR_SECRET_CODE) {
-        sessionStorage.setItem("authTime", new Date().getTime());
-        document.getElementById("status").innerText = "Zugang gewährt!";
-        checkSession();
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ secret: activeToken, action: "getArtikel", code: decodedText })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.artikel) {
+        currentArtikel = data.artikel;
+        document.getElementById("artName").innerText = currentArtikel.artikelname;
+        document.getElementById("artBestand").innerText = currentArtikel.bestand;
+        document.getElementById("artikelSection").style.display = "block";
+        document.getElementById("status").innerText = "Artikel geladen.";
       } else {
-        document.getElementById("status").innerText = "Ungültiger Tür-Code!";
+        document.getElementById("status").innerText = "Code '" + decodedText + "' nicht gefunden.";
       }
-      return;
-    }
-
-    if (scanMode === 'ARTIKEL') {
-      document.getElementById("status").innerText = "Lade Artikel...";
-      
-      fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "getArtikel", code: decodedText })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.artikel) {
-          currentArtikel = data.artikel;
-          document.getElementById("artName").innerText = currentArtikel.artikelname;
-          document.getElementById("artBestand").innerText = currentArtikel.bestand;
-          document.getElementById("artikelSection").style.display = "block";
-          document.getElementById("status").innerText = "Artikel geladen.";
-        } else {
-          document.getElementById("status").innerText = "Code '" + decodedText + "' nicht gefunden.";
-        }
-      })
-      .catch(err => {
-        document.getElementById("status").innerText = "Fehler: " + err;
-      });
-    }
+    })
+    .catch(err => {
+      document.getElementById("status").innerText = "Fehler: " + err;
+    });
   }
 
   function buchen(typ) {
-    checkSession();
-    if (!sessionStorage.getItem("authTime")) return;
-
     const menge = document.getElementById("menge").value;
     document.getElementById("status").innerText = "Speichere Buchung...";
 
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({
+        secret: activeToken,
         action: "buchen",
         typ: typ,
         artikelId: currentArtikel.artikelId,
