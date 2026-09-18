@@ -11,21 +11,19 @@
     button { width: 100%; padding: 15px; font-size: 18px; border: none; border-radius: 8px; color: white; margin-top: 10px; cursor: pointer; font-weight: bold; }
     .btn-main { background: #007bff; }
     .btn-sub { background: #dc3545; }
-    .btn-add { background: #28a745; }
     input { width: 100%; padding: 12px; font-size: 18px; text-align: center; margin-top: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
     #reader { width: 100%; max-width: 500px; margin: 0 auto 15px auto; display: none; }
     #status { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; background: #e9ecef; }
     
-    /* Suchergebnisse */
     .search-item { background: #fff; border: 1px solid #ddd; padding: 12px; margin-top: 8px; border-radius: 6px; text-align: left; cursor: pointer; }
     .search-item:hover { background: #e9ecef; }
-    .search-item div { font-size: 12px; color: #666; }
+    .search-item div { font-size: 13px; color: #555; margin-top: 4px; }
   </style>
 </head>
 <body>
 
 <div id="app">
-  <!-- SPERR-BILDSCHIRM (wenn kein gültiges Token in URL/Session) -->
+  <!-- SPERR-BILDSCHIRM -->
   <div id="lockSection" class="card">
     <h2>Zugriff verweigert</h2>
     <p>Bitte den QR-Code an der Lagertür scannen, um die App zu öffnen.</p>
@@ -42,7 +40,7 @@
     
     <!-- SUCHBEREICH -->
     <label for="searchInput" style="font-weight: bold;">Oder Artikel suchen:</label>
-    <input type="text" id="searchInput" placeholder="z. B. Käse..." onkeyup="if(event.key==='Enter') artikelSuchen()">
+    <input type="text" id="searchInput" placeholder="Artikelsuche" onkeyup="if(event.key==='Enter') artikelSuchen()">
     <button class="btn-main" style="background:#6c757d;" onclick="artikelSuchen()">🔍 Suchen</button>
 
     <div id="searchResults"></div>
@@ -55,13 +53,13 @@
   <div id="artikelSection" class="card" style="display:none;">
     <h3 id="artName">-</h3>
     <p>Lagerplatz: <strong id="artLager">-</strong></p>
+    <p id="artLagerDesc" style="font-size: 14px; color: #666; margin-top: -10px;"></p>
     <p>Aktueller Bestand: <strong id="artBestand" style="font-size: 24px; color: #007bff;">-</strong></p>
     
-    <label for="menge">Menge:</label>
+    <label for="menge">Entnahmemenge:</label>
     <input type="number" id="menge" value="1" min="1" inputmode="numeric">
 
     <button class="btn-sub" onclick="buchen('ENTNAHME')">▼ Entnehmen</button>
-    <button class="btn-add" onclick="buchen('EINLAGERUNG')">▲ Einlagern</button>
     <button style="background:#6c757d; margin-top:20px;" onclick="zurueckZurSuche()">Abbrechen</button>
   </div>
 
@@ -69,10 +67,7 @@
 </div>
 
 <script>
-  // Google Apps Script Web-App URL mit deiner exakten Bereitstellungs-ID
   const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx_-OuTgUy-ZvXdkd2rLwM-DlkKmF9NhIy_ns2o7TtiSq5AOI9OGMiM3mp8Wg2FTky/exec";
-  
-  // Secret-Schlüssel (Muss mit API_SECRET in Code.gs übereinstimmen)
   const VALID_SECRET = "TUER-LAGER-2026"; 
 
   let html5QrcodeScanner = null;
@@ -109,7 +104,6 @@
     }
   }
 
-  // SUCHFUNKTION
   function artikelSuchen() {
     const query = document.getElementById("searchInput").value.trim();
     if (!query) return;
@@ -127,10 +121,11 @@
         document.getElementById("status").innerText = data.treffer.length + " Artikel gefunden.";
         let html = "";
         data.treffer.forEach(art => {
+          const descText = art.lagerplatzBeschreibung ? ` (${art.lagerplatzBeschreibung})` : "";
           html += `
             <div class="search-item" onclick="waehleArtikel('${art.artikelId}')">
               <strong>${art.artikelname}</strong>
-              <div>Lagerplatz: ${art.lagerplatzName} | Bestand: ${art.bestand}</div>
+              <div>Lagerplatz: ${art.lagerplatzName}${descText} | Bestand: ${art.bestand}</div>
             </div>
           `;
         });
@@ -204,7 +199,8 @@
   function zeigArtikelMaske(artikel) {
     currentArtikel = artikel;
     document.getElementById("artName").innerText = artikel.artikelname;
-    document.getElementById("artLager").innerText = artikel.lagerplatzId;
+    document.getElementById("artLager").innerText = artikel.lagerplatzName || artikel.lagerplatzId;
+    document.getElementById("artLagerDesc").innerText = artikel.lagerplatzBeschreibung || "";
     document.getElementById("artBestand").innerText = artikel.bestand;
     document.getElementById("scanSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "block";
