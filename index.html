@@ -80,26 +80,52 @@
     const authTime = sessionStorage.getItem("authTime");
     const now = new Date().getTime();
 
-    // Nimmt Token aus URL ODER aus der aktiven 30-Min-Session
-    if (tokenFromUrl || (storedToken && authTime && (now - authTime < 1800000))) {
-      activeToken = tokenFromUrl || storedToken;
-      sessionStorage.setItem("authToken", activeToken);
-      sessionStorage.setItem("authTime", now);
+    const candidateToken = tokenFromUrl || (storedToken && (now - authTime < 1800000) ? storedToken : null);
 
-      document.getElementById("lockSection").style.display = "none";
-      document.getElementById("scanSection").style.display = "block";
-      
-      if (tokenFromUrl) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-
-      document.getElementById("sessionInfo").innerText = "Zugang aktiv (30 Min.)";
-    } else {
-      sessionStorage.clear();
-      document.getElementById("lockSection").style.display = "block";
-      document.getElementById("scanSection").style.display = "none";
-      document.getElementById("artikelSection").style.display = "none";
+    if (!candidateToken) {
+      lockApp();
+      return;
     }
+
+    document.getElementById("status").innerText = "Prüfe Zugang...";
+
+    // Echte Prüfung des Tokens bei Google Apps Script
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "checkToken", secret: candidateToken })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success === true) {
+        activeToken = candidateToken;
+        sessionStorage.setItem("authToken", activeToken);
+        sessionStorage.setItem("authTime", now);
+
+        document.getElementById("lockSection").style.display = "none";
+        document.getElementById("scanSection").style.display = "block";
+        document.getElementById("status").innerText = "Bereit";
+        
+        if (tokenFromUrl) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        document.getElementById("sessionInfo").innerText = "Zugang aktiv (30 Min.)";
+      } else {
+        lockApp();
+      }
+    })
+    .catch(err => {
+      lockApp();
+      document.getElementById("status").innerText = "Verbindungsfehler.";
+    });
+  }
+
+  function lockApp() {
+    sessionStorage.clear();
+    document.getElementById("lockSection").style.display = "block";
+    document.getElementById("scanSection").style.display = "none";
+    document.getElementById("artikelSection").style.display = "none";
+    document.getElementById("status").innerText = "Zugriff verweigert";
   }
 
   function artikelSuchen() {
