@@ -151,13 +151,20 @@
         document.getElementById("status").innerText = "Bereit";
         document.getElementById("sessionInfo").innerText = "Admin-Zugang aktiv (10 Std.)";
       } else {
-        alert("Falsches Admin-Passwort!");
+        // SAUBERER RESET BEI FALSCHEM PASSWORT
         localStorage.clear();
+        activeAdminPw = null;
+        document.getElementById("adminPwInput").value = "";
         showLogin();
+        document.getElementById("status").innerText = "Falsches Passwort! Bitte erneut versuchen.";
       }
     })
     .catch(err => {
-      document.getElementById("status").innerText = "Verbindungsfehler.";
+      // SAUBERER RESET BEI VERBINDUNGSFEHLER
+      localStorage.clear();
+      activeAdminPw = null;
+      showLogin();
+      document.getElementById("status").innerText = "Verbindungsfehler. Erneut versuchen.";
     });
   }
 
