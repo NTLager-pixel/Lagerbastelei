@@ -239,18 +239,46 @@
   async function onScanSuccess(decodedText) {
     await html5QrcodeScanner.stop();
     document.getElementById("reader").style.display = "none";
+    document.getElementById("status").innerText = "Lade Daten...";
 
-    if (scanMode === 'NEW_ART_CODE') {
-      document.getElementById("newArtCode").value = decodedText;
-      document.getElementById("status").innerText = "Artikelcode erfasst.";
-      return;
-    }
-
-    if (scanMode === 'NEW_ART_LAGER') {
-      document.getElementById("newArtLager").value = decodedText;
-      document.getElementById("status").innerText = "Lagerplatz erfasst.";
-      return;
-    }
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ secret: activeToken, action: "getArtikel", code: decodedText })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        if (data.isLagerplatz) {
+          // Mehrere Artikel auf dem Lagerplatz gefunden -> Trefferliste anzeigen
+          if (data.treffer && data.treffer.length > 0) {
+            document.getElementById("status").innerText = data.treffer.length + " Artikel an Lagerplatz '" + data.lagerplatzName + "' gefunden.";
+            let html = "";
+            data.treffer.forEach(art => {
+              const descText = art.lagerplatzBeschreibung ? ` (${art.lagerplatzBeschreibung})` : "";
+              html += `
+                <div class="search-item" onclick="waehleArtikel('${art.artikelId}')">
+                  <strong>${art.artikelname}</strong>
+                  <div>Lagerplatz: ${art.lagerplatzName}${descText} | Bestand: ${art.bestand}</div>
+                </div>
+              `;
+            });
+            document.getElementById("searchResults").innerHTML = html;
+            document.getElementById("scanSection").style.display = "block";
+          } else {
+            document.getElementById("status").innerText = "Lagerplatz '" + data.lagerplatzName + "' ist leer.";
+          }
+        } else if (data.artikel) {
+          // Eindeutiger Artikel -> Direkt zur Artikelmaske
+          zeigArtikelMaske(data.artikel);
+        }
+      } else {
+        document.getElementById("status").innerText = data.error || ("Code '" + decodedText + "' nicht gefunden.");
+      }
+    })
+    .catch(err => {
+      document.getElementById("status").innerText = "Fehler: " + err;
+    });
+  }
 
     document.getElementById("status").innerText = "Lade Artikel...";
     fetch(GOOGLE_SCRIPT_URL, {
