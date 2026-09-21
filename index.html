@@ -141,7 +141,7 @@
     })
     .then(res => res.json())
     .then(data => {
-      if (data.success && data.treffer.length > 0) {
+      if (data.success && data.treffer && data.treffer.length > 0) {
         document.getElementById("status").innerText = data.treffer.length + " Artikel gefunden.";
         let html = "";
         data.treffer.forEach(art => {
