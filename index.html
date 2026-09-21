@@ -241,6 +241,13 @@
 
   function buchen(typ) {
     const menge = document.getElementById("menge").value;
+    const btn = event.target;
+    
+    // Button sofort sperren und visuell deaktivieren
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "not-allowed";
+
     document.getElementById("status").innerText = "Speichere Buchung...";
 
     fetch(GOOGLE_SCRIPT_URL, {
@@ -255,6 +262,11 @@
     })
     .then(res => res.json())
     .then(data => {
+      // Button wieder freigeben
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+
       if (data.success) {
         document.getElementById("status").innerText = "Gebucht! Neuer Bestand: " + data.result.bestand;
         document.getElementById("artBestand").innerText = data.result.bestand;
@@ -262,6 +274,13 @@
       } else {
         document.getElementById("status").innerText = "Fehler: " + data.error;
       }
+    })
+    .catch(err => {
+      // Bei Netzwerkfehler Button ebenfalls wieder freigeben
+      btn.disabled = false;
+      btn.style.opacity = "1";
+      btn.style.cursor = "pointer";
+      document.getElementById("status").innerText = "Fehler: " + err;
     });
   }
 </script>
