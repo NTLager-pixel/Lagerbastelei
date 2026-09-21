@@ -38,7 +38,7 @@
     <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
     
     <label for="searchInput" style="font-weight: bold;">Oder Artikel suchen:</label>
-    <input type="text" id="searchInput" placeholder="...Artikelbezeichnng,ArtikrlID oder Lagerplatz" onkeyup="if(event.key==='Enter') artikelSuchen()">
+    <input type="text" id="searchInput" placeholder="...Artikelbezeichnung, ArtikelID oder Lagerplatz" onkeyup="if(event.key==='Enter') artikelSuchen()">
     <button class="btn-main" style="background:#6c757d;" onclick="artikelSuchen()">🔍 Suchen</button>
 
     <div id="searchResults"></div>
@@ -200,7 +200,7 @@
     }
   }
 
- async function onScanSuccess(decodedText) {
+  async function onScanSuccess(decodedText) {
     await html5QrcodeScanner.stop();
     document.getElementById("reader").style.display = "none";
     document.getElementById("status").innerText = "Lade Daten...";
@@ -213,7 +213,6 @@
     .then(data => {
       if (data.success) {
         if (data.isLagerplatz) {
-          // Mehrere Artikel auf dem Lagerplatz gefunden -> Trefferliste anzeigen
           if (data.treffer && data.treffer.length > 0) {
             document.getElementById("status").innerText = data.treffer.length + " Artikel an Lagerplatz '" + data.lagerplatzName + "' gefunden.";
             let html = "";
@@ -232,7 +231,6 @@
             document.getElementById("status").innerText = "Lagerplatz '" + data.lagerplatzName + "' ist leer.";
           }
         } else if (data.artikel) {
-          // Eindeutiger Artikel -> Direkt zur Artikelmaske
           zeigArtikelMaske(data.artikel);
         }
       } else {
