@@ -200,10 +200,10 @@
     }
   }
 
-  async function onScanSuccess(decodedText) {
+ async function onScanSuccess(decodedText) {
     await html5QrcodeScanner.stop();
     document.getElementById("reader").style.display = "none";
-    document.getElementById("status").innerText = "Lade Artikel...";
+    document.getElementById("status").innerText = "Lade Daten...";
 
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
@@ -211,8 +211,30 @@
     })
     .then(res => res.json())
     .then(data => {
-      if (data.success && data.artikel) {
-        zeigArtikelMaske(data.artikel);
+      if (data.success) {
+        if (data.isLagerplatz) {
+          // Mehrere Artikel auf dem Lagerplatz gefunden -> Trefferliste anzeigen
+          if (data.treffer && data.treffer.length > 0) {
+            document.getElementById("status").innerText = data.treffer.length + " Artikel an Lagerplatz '" + data.lagerplatzName + "' gefunden.";
+            let html = "";
+            data.treffer.forEach(art => {
+              const descText = art.lagerplatzBeschreibung ? ` (${art.lagerplatzBeschreibung})` : "";
+              html += `
+                <div class="search-item" onclick="waehleArtikel('${art.artikelId}')">
+                  <strong>${art.artikelname}</strong>
+                  <div>Lagerplatz: ${art.lagerplatzName}${descText} | Bestand: ${art.bestand}</div>
+                </div>
+              `;
+            });
+            document.getElementById("searchResults").innerHTML = html;
+            document.getElementById("scanSection").style.display = "block";
+          } else {
+            document.getElementById("status").innerText = "Lagerplatz '" + data.lagerplatzName + "' ist leer.";
+          }
+        } else if (data.artikel) {
+          // Eindeutiger Artikel -> Direkt zur Artikelmaske
+          zeigArtikelMaske(data.artikel);
+        }
       } else {
         document.getElementById("status").innerText = data.error || ("Code '" + decodedText + "' nicht gefunden.");
       }
