@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lager - Admin</title>
+  <title>Lager Admin-Interface</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 15px; background: #f4f4f9; color: #333; }
+    body { font-family: Arial, sans-serif; margin: 15px; background: #eef2f5; color: #333; }
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; text-align: center; }
     button { width: 100%; padding: 15px; font-size: 18px; border: none; border-radius: 8px; color: white; margin-top: 10px; cursor: pointer; font-weight: bold; }
     .btn-main { background: #007bff; }
-    .btn-sub { background: #dc3545; }
-    .btn-add { background: #28a745; }
-    .scan-btn-small { background: #6c757d; font-size: 14px; padding: 10px; margin-top: 5px; }
+    .btn-in { background: #28a745; }
+    .btn-out { background: #dc3545; }
     input { width: 100%; padding: 12px; font-size: 18px; text-align: center; margin-top: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
     #reader { width: 100%; max-width: 500px; margin: 0 auto 15px auto; display: none; }
     #status { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; background: #e9ecef; }
@@ -24,35 +23,44 @@
 <body>
 
 <div id="app">
-  <!-- LOGIN MASK -->
+  <!-- LOGIN SECTION -->
   <div id="loginSection" class="card">
-    <h2>Admin-Login</h2>
-    <p>Bitte Passwort eingeben:</p>
-    <input type="password" id="adminPwInput" placeholder="Passwort" onkeyup="if(event.key==='Enter') loginAdmin()">
+    <h2>Admin Login</h2>
+    <input type="password" id="adminPassword" placeholder="Admin-Passwort eingeben">
     <button class="btn-main" onclick="loginAdmin()">Anmelden</button>
   </div>
 
-  <!-- MAIN SCREEN (ADMIN) -->
-  <div id="scanSection" class="card" style="display:none;">
-    <h2>Lagerbuchung (Admin)</h2>
-    <p id="sessionInfo" style="color: #28a745; font-size: 13px; font-weight: bold;"></p>
+  <!-- MAIN ADMIN SCREEN -->
+  <div id="adminSection" class="card" style="display:none;">
+    <h2>Lager Admin</h2>
+    <p id="adminSessionInfo" style="color: #28a745; font-size: 13px; font-weight: bold;"></p>
     
-    <button class="btn-main" onclick="startScanner('SCAN_ITEM')">📷 Regal / Artikel scannen</button>
+    <button class="btn-main" onclick="startScanner()">📷 Regal / Artikel scannen</button>
+    <button style="background: #17a2b8; margin-top:10px;" onclick="zeigNeuerArtikelMaske()">➕ Neuen Artikel anlegen</button>
     
     <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
     
     <label for="searchInput" style="font-weight: bold;">Oder Artikel suchen:</label>
-    <input type="text" id="searchInput" placeholder="Artikelsuche" onkeyup="if(event.key==='Enter') artikelSuchen()">
+    <input type="text" id="searchInput" placeholder="...Artikelbezeichnung, ArtikelID oder Lagerplatz" onkeyup="if(event.key==='Enter') artikelSuchen()">
     <button class="btn-main" style="background:#6c757d;" onclick="artikelSuchen()">🔍 Suchen</button>
 
     <div id="searchResults"></div>
-
-    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-    <button class="btn-add" onclick="zeigNeuerArtikelMaske()">➕ Neuer Artikel</button>
   </div>
 
   <!-- KAMERA DISPLAY -->
   <div id="reader"></div>
+
+  <!-- NEUER ARTIKEL MASKE -->
+  <div id="newArtikelSection" class="card" style="display:none;">
+    <h3>Neuen Artikel anlegen</h3>
+    <input type="text" id="newArtName" placeholder="Artikelname *">
+    <input type="text" id="newArtCode" placeholder="Barcode / QR-Code">
+    <input type="text" id="newArtLager" placeholder="Lagerplatz-ID *">
+    <input type="number" id="newArtBestand" placeholder="Startbestand" value="0" min="0">
+    
+    <button class="btn-in" onclick="erstelleArtikel()">Speichern</button>
+    <button style="background:#6c757d; margin-top:10px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
+  </div>
 
   <!-- ARTIKEL & BUCHUNG DISPLAY -->
   <div id="artikelSection" class="card" style="display:none;">
@@ -64,31 +72,9 @@
     <label for="menge">Menge:</label>
     <input type="number" id="menge" value="1" min="1" inputmode="numeric">
 
-    <button class="btn-add" onclick="buchen('EINLAGERUNG')">▲ Einlagern</button>
-    <button class="btn-sub" onclick="buchen('ENTNAHME')">▼ Entnehmen</button>
-    <button style="background:#6c757d; margin-top:20px;" onclick="zurueckZurSuche()">Abbrechen</button>
-  </div>
-
-  <!-- NEUER ARTIKEL MASK -->
-  <div id="newArtSection" class="card" style="display:none;">
-    <h3>Neuen Artikel anlegen</h3>
-    
-    <label for="newArtName" style="font-weight:bold;">1. Artikelname:</label>
-    <input type="text" id="newArtName" placeholder="z. B. Bohrer M8">
-
-    <label for="newArtCode" style="font-weight:bold; margin-top:15px; display:block;">2. Artikelcode / Barcode:</label>
-    <input type="text" id="newArtCode" placeholder="Code scannen oder eintippen">
-    <button class="scan-btn-small" onclick="startScanner('NEW_ART_CODE')">📷 Artikelcode scannen</button>
-
-    <label for="newArtLager" style="font-weight:bold; margin-top:15px; display:block;">3. Lagerplatz-ID:</label>
-    <input type="text" id="newArtLager" placeholder="Lagerplatz scannen oder eintippen">
-    <button class="scan-btn-small" onclick="startScanner('NEW_ART_LAGER')">📷 Lagerplatz scannen</button>
-
-    <label for="newArtBestand" style="font-weight:bold; margin-top:15px; display:block;">4. Anfangsbestand:</label>
-    <input type="number" id="newArtBestand" value="1" min="0" inputmode="numeric">
-
-    <button class="btn-add" onclick="speichereNeuenArtikel()">💾 Artikel anlegen</button>
-    <button style="background:#6c757d; margin-top:10px;" onclick="zurueckZurSuche()">Abbrechen</button>
+    <button class="btn-in" onclick="buchen('EINLAGERUNG')">▲ Einlagern</button>
+    <button class="btn-out" onclick="buchen('ENTNAHME')">▼ Entnehmen</button>
+    <button style="background:#6c757d; margin-top:20px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
   </div>
 
   <div id="status">Bereit</div>
@@ -99,42 +85,42 @@
 
   let html5QrcodeScanner = null;
   let currentArtikel = null;
-  let activeAdminPw = null;
-  let scanMode = 'SCAN_ITEM'; 
+  let adminPassword = null;
+  let isBookingActive = false;
 
-  window.onload = checkAuth;
+  window.onload = checkAdminAuth;
 
-  function checkAuth() {
-    const storedPw = localStorage.getItem("adminPw");
-    const loginTime = localStorage.getItem("adminTime");
+  function checkAdminAuth() {
+    const storedPw = localStorage.getItem("adminPassword");
+    const loginTime = localStorage.getItem("adminLoginTime");
     const now = new Date().getTime();
 
-    // 10 Stunden (36.000.000 Millisekunden)
+    // 10 Stunden Session-Dauer (36.000.000 ms)
     if (storedPw && loginTime && (now - loginTime < 36000000)) {
-      verifyAndOpen(storedPw);
+      verifyPassword(storedPw);
     } else {
-      localStorage.clear();
       showLogin();
     }
   }
 
   function showLogin() {
+    localStorage.removeItem("adminPassword");
+    localStorage.removeItem("adminLoginTime");
     document.getElementById("loginSection").style.display = "block";
-    document.getElementById("scanSection").style.display = "none";
+    document.getElementById("adminSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "none";
-    document.getElementById("newArtSection").style.display = "none";
+    document.getElementById("newArtikelSection").style.display = "none";
     document.getElementById("status").innerText = "Bitte anmelden";
   }
 
   function loginAdmin() {
-    const pw = document.getElementById("adminPwInput").value.trim();
+    const pw = document.getElementById("adminPassword").value.trim();
     if (!pw) return;
-    verifyAndOpen(pw);
+    document.getElementById("status").innerText = "Prüfe Passwort...";
+    verifyPassword(pw);
   }
 
-  function verifyAndOpen(pw) {
-    document.getElementById("status").innerText = "Prüfe Passwort...";
-
+  function verifyPassword(pw) {
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({ action: "checkAdmin", adminPw: pw })
@@ -142,29 +128,22 @@
     .then(res => res.json())
     .then(data => {
       if (data.success === true) {
-        activeAdminPw = pw;
-        localStorage.setItem("adminPw", activeAdminPw);
-        localStorage.setItem("adminTime", new Date().getTime());
+        adminPassword = pw;
+        localStorage.setItem("adminPassword", adminPassword);
+        localStorage.setItem("adminLoginTime", new Date().getTime());
 
         document.getElementById("loginSection").style.display = "none";
-        document.getElementById("scanSection").style.display = "block";
+        document.getElementById("adminSection").style.display = "block";
+        document.getElementById("adminSessionInfo").innerText = "Admin-Sitzung aktiv";
         document.getElementById("status").innerText = "Bereit";
-        document.getElementById("sessionInfo").innerText = "Admin-Zugang aktiv (10 Std.)";
       } else {
-        // SAUBERER RESET BEI FALSCHEM PASSWORT
-        localStorage.clear();
-        activeAdminPw = null;
-        document.getElementById("adminPwInput").value = "";
         showLogin();
-        document.getElementById("status").innerText = "Falsches Passwort! Bitte erneut versuchen.";
+        document.getElementById("status").innerText = "Falsches Passwort.";
       }
     })
     .catch(err => {
-      // SAUBERER RESET BEI VERBINDUNGSFEHLER
-      localStorage.clear();
-      activeAdminPw = null;
       showLogin();
-      document.getElementById("status").innerText = "Verbindungsfehler. Erneut versuchen.";
+      document.getElementById("status").innerText = "Verbindungsfehler.";
     });
   }
 
@@ -177,11 +156,11 @@
 
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({ adminPw: activeAdminPw, action: "suche", query: query })
+      body: JSON.stringify({ adminPw: adminPassword, action: "suche", query: query })
     })
     .then(res => res.json())
     .then(data => {
-      if (data.success && data.treffer.length > 0) {
+      if (data.success && data.treffer && data.treffer.length > 0) {
         document.getElementById("status").innerText = data.treffer.length + " Artikel gefunden.";
         let html = "";
         data.treffer.forEach(art => {
@@ -197,6 +176,9 @@
       } else {
         document.getElementById("status").innerText = data.error || ("Keine Artikel zu '" + query + "' gefunden.");
       }
+    })
+    .catch(err => {
+      document.getElementById("status").innerText = "Fehler: " + err;
     });
   }
 
@@ -205,18 +187,19 @@
     
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({ adminPw: activeAdminPw, action: "getArtikel", code: artikelId })
+      body: JSON.stringify({ adminPw: adminPassword, action: "getArtikel", code: artikelId })
     })
     .then(res => res.json())
     .then(data => {
       if (data.success && data.artikel) {
         zeigArtikelMaske(data.artikel);
+      } else {
+        document.getElementById("status").innerText = data.error || "Fehler beim Laden.";
       }
     });
   }
 
-  async function startScanner(mode) {
-    scanMode = mode || 'SCAN_ITEM';
+  async function startScanner() {
     document.getElementById("status").innerText = "Starte Kamera...";
     document.getElementById("reader").style.display = "block";
 
@@ -243,13 +226,12 @@
 
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
-      body: JSON.stringify({ secret: activeToken, action: "getArtikel", code: decodedText })
+      body: JSON.stringify({ adminPw: adminPassword, action: "getArtikel", code: decodedText })
     })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
         if (data.isLagerplatz) {
-          // Mehrere Artikel auf dem Lagerplatz gefunden -> Trefferliste anzeigen
           if (data.treffer && data.treffer.length > 0) {
             document.getElementById("status").innerText = data.treffer.length + " Artikel an Lagerplatz '" + data.lagerplatzName + "' gefunden.";
             let html = "";
@@ -263,12 +245,11 @@
               `;
             });
             document.getElementById("searchResults").innerHTML = html;
-            document.getElementById("scanSection").style.display = "block";
+            document.getElementById("adminSection").style.display = "block";
           } else {
             document.getElementById("status").innerText = "Lagerplatz '" + data.lagerplatzName + "' ist leer.";
           }
         } else if (data.artikel) {
-          // Eindeutiger Artikel -> Direkt zur Artikelmaske
           zeigArtikelMaske(data.artikel);
         }
       } else {
@@ -280,90 +261,50 @@
     });
   }
 
-    document.getElementById("status").innerText = "Lade Artikel...";
-    fetch(GOOGLE_SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({ adminPw: activeAdminPw, action: "getArtikel", code: decodedText })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success && data.artikel) {
-        zeigArtikelMaske(data.artikel);
-      } else {
-        document.getElementById("status").innerText = "Code '" + decodedText + "' nicht gefunden.";
-      }
-    });
-  }
-
   function zeigArtikelMaske(artikel) {
     currentArtikel = artikel;
     document.getElementById("artName").innerText = artikel.artikelname;
     document.getElementById("artLager").innerText = artikel.lagerplatzName || artikel.lagerplatzId;
     document.getElementById("artLagerDesc").innerText = artikel.lagerplatzBeschreibung || "";
     document.getElementById("artBestand").innerText = artikel.bestand;
-    document.getElementById("scanSection").style.display = "none";
-    document.getElementById("newArtSection").style.display = "none";
+    
+    document.getElementById("adminSection").style.display = "none";
+    document.getElementById("newArtikelSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "block";
     document.getElementById("status").innerText = "Artikel geladen.";
   }
 
   function zeigNeuerArtikelMaske() {
-    document.getElementById("scanSection").style.display = "none";
+    document.getElementById("adminSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "none";
-    document.getElementById("newArtSection").style.display = "block";
-    document.getElementById("status").innerText = "Neuen Artikel erfassen";
+    document.getElementById("newArtikelSection").style.display = "block";
+    document.getElementById("status").innerText = "Neuen Artikel eingeben";
   }
 
-  function zurueckZurSuche() {
+  function zurueckZurHauptansicht() {
     document.getElementById("artikelSection").style.display = "none";
-    document.getElementById("newArtSection").style.display = "none";
-    document.getElementById("scanSection").style.display = "block";
+    document.getElementById("newArtikelSection").style.display = "none";
+    document.getElementById("adminSection").style.display = "block";
     document.getElementById("status").innerText = "Bereit";
   }
 
-  function buchen(typ) {
-    const menge = document.getElementById("menge").value;
-    document.getElementById("status").innerText = "Speichere Buchung...";
-
-    fetch(GOOGLE_SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        adminPw: activeAdminPw,
-        action: "buchen",
-        typ: typ,
-        artikelId: currentArtikel.artikelId,
-        menge: menge
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        document.getElementById("status").innerText = "Gebucht! Neuer Bestand: " + data.result.bestand;
-        document.getElementById("artBestand").innerText = data.result.bestand;
-        setTimeout(zurueckZurSuche, 1500);
-      } else {
-        document.getElementById("status").innerText = "Fehler: " + data.error;
-      }
-    });
-  }
-
-  function speichereNeuenArtikel() {
+  function erstelleArtikel() {
     const name = document.getElementById("newArtName").value.trim();
     const code = document.getElementById("newArtCode").value.trim();
     const lager = document.getElementById("newArtLager").value.trim();
     const bestand = document.getElementById("newArtBestand").value;
 
     if (!name || !lager) {
-      alert("Bitte mindestens Artikelname und Lagerplatz ausfüllen!");
+      document.getElementById("status").innerText = "Name und Lagerplatz sind Pflichtfelder.";
       return;
     }
 
-    document.getElementById("status").innerText = "Speichere Artikel...";
+    document.getElementById("status").innerText = "Erstelle Artikel...";
 
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
       body: JSON.stringify({
-        adminPw: activeAdminPw,
+        adminPw: adminPassword,
         action: "createArtikel",
         artikelname: name,
         code: code,
@@ -374,16 +315,52 @@
     .then(res => res.json())
     .then(data => {
       if (data.success) {
-        alert("Artikel '" + name + "' erfolgreich angelegt!");
+        document.getElementById("status").innerText = "Artikel erfolgreich angelegt!";
         document.getElementById("newArtName").value = "";
         document.getElementById("newArtCode").value = "";
         document.getElementById("newArtLager").value = "";
-        document.getElementById("newArtBestand").value = "1";
-        zurueckZurSuche();
+        document.getElementById("newArtBestand").value = "0";
+        setTimeout(zurueckZurHauptansicht, 1500);
       } else {
-        alert("Fehler: " + data.error);
-        document.getElementById("status").innerText = "Fehler beim Speichern";
+        document.getElementById("status").innerText = "Fehler: " + data.error;
       }
+    })
+    .catch(err => {
+      document.getElementById("status").innerText = "Fehler: " + err;
+    });
+  }
+
+  function buchen(typ) {
+    if (isBookingActive) return;
+    isBookingActive = true;
+
+    document.getElementById("status").innerText = "Speichere Buchung...";
+    const menge = document.getElementById("menge").value;
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        adminPw: adminPassword,
+        action: "buchen",
+        typ: typ,
+        artikelId: currentArtikel.artikelId,
+        menge: menge
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      isBookingActive = false;
+      if (data.success) {
+        document.getElementById("status").innerText = "Gebucht! Neuer Bestand: " + data.result.bestand;
+        document.getElementById("artBestand").innerText = data.result.bestand;
+        setTimeout(zurueckZurHauptansicht, 1500);
+      } else {
+        document.getElementById("status").innerText = "Fehler: " + data.error;
+      }
+    })
+    .catch(err => {
+      isBookingActive = false;
+      document.getElementById("status").innerText = "Fehler: " + err;
     });
   }
 </script>
