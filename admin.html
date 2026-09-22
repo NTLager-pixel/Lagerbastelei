@@ -12,12 +12,15 @@
     .btn-main { background: #007bff; }
     .btn-in { background: #28a745; }
     .btn-out { background: #dc3545; }
+    .btn-scan { background: #17a2b8; padding: 10px; font-size: 14px; margin-top: 5px; margin-bottom: 10px; }
     input { width: 100%; padding: 12px; font-size: 18px; text-align: center; margin-top: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
     #reader { width: 100%; max-width: 500px; margin: 0 auto 15px auto; display: none; }
     #status { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; background: #e9ecef; }
     .search-item { background: #fff; border: 1px solid #ddd; padding: 12px; margin-top: 8px; border-radius: 6px; text-align: left; cursor: pointer; }
     .search-item:hover { background: #e9ecef; }
     .search-item div { font-size: 13px; color: #555; margin-top: 4px; }
+    .input-group { margin-bottom: 10px; text-align: left; }
+    .input-group label { font-size: 12px; font-weight: bold; color: #666; }
   </style>
 </head>
 <body>
@@ -26,7 +29,7 @@
   <!-- LOGIN SECTION -->
   <div id="loginSection" class="card">
     <h2>Admin Login</h2>
-    <input type="password" id="adminPassword" placeholder="Admin-Passwort eingeben">
+    <input type="password" id="adminPassword" placeholder="Admin-Passwort eingeben" onkeyup="if(event.key==='Enter') loginAdmin()">
     <button class="btn-main" onclick="loginAdmin()">Anmelden</button>
   </div>
 
@@ -35,7 +38,7 @@
     <h2>Lager Admin</h2>
     <p id="adminSessionInfo" style="color: #28a745; font-size: 13px; font-weight: bold;"></p>
     
-    <button class="btn-main" onclick="startScanner()">📷 Regal / Artikel scannen</button>
+    <button class="btn-main" onclick="startMainScanner()">📷 Regal / Artikel scannen</button>
     <button style="background: #17a2b8; margin-top:10px;" onclick="zeigNeuerArtikelMaske()">➕ Neuen Artikel anlegen</button>
     
     <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
@@ -53,10 +56,28 @@
   <!-- NEUER ARTIKEL MASKE -->
   <div id="newArtikelSection" class="card" style="display:none;">
     <h3>Neuen Artikel anlegen</h3>
-    <input type="text" id="newArtName" placeholder="Artikelname *">
-    <input type="text" id="newArtCode" placeholder="Barcode / QR-Code">
-    <input type="text" id="newArtLager" placeholder="Lagerplatz-ID *">
-    <input type="number" id="newArtBestand" placeholder="Startbestand" value="0" min="0">
+    
+    <div class="input-group">
+      <label>Artikelname *</label>
+      <input type="text" id="newArtName" placeholder="Artikelbezeichnung">
+    </div>
+
+    <div class="input-group">
+      <label>Barcode / QR-Code</label>
+      <input type="text" id="newArtCode" placeholder="Code eingeben oder scannen">
+      <button class="btn-scan" onclick="startFieldScanner('newArtCode')">📷 Barcode / QR scannen</button>
+    </div>
+
+    <div class="input-group">
+      <label>Lagerplatz-ID *</label>
+      <input type="text" id="newArtLager" placeholder="Lagerplatz eingeben oder scannen">
+      <button class="btn-scan" onclick="startFieldScanner('newArtLager')">📷 Lagerplatz scannen</button>
+    </div>
+
+    <div class="input-group">
+      <label>Startbestand</label>
+      <input type="number" id="newArtBestand" placeholder="Startbestand" value="0" min="0">
+    </div>
     
     <button class="btn-in" onclick="erstelleArtikel()">Speichern</button>
     <button style="background:#6c757d; margin-top:10px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
@@ -87,6 +108,7 @@
   let currentArtikel = null;
   let adminPassword = null;
   let isBookingActive = false;
+  let scanTargetInputId = null;
 
   window.onload = checkAdminAuth;
 
@@ -95,7 +117,6 @@
     const loginTime = localStorage.getItem("adminLoginTime");
     const now = new Date().getTime();
 
-    // 10 Stunden Session-Dauer (36.000.000 ms)
     if (storedPw && loginTime && (now - loginTime < 36000000)) {
       verifyPassword(storedPw);
     } else {
@@ -106,6 +127,7 @@
   function showLogin() {
     localStorage.removeItem("adminPassword");
     localStorage.removeItem("adminLoginTime");
+    adminPassword = null;
     document.getElementById("loginSection").style.display = "block";
     document.getElementById("adminSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "none";
@@ -199,7 +221,17 @@
     });
   }
 
-  async function startScanner() {
+  function startMainScanner() {
+    scanTargetInputId = null;
+    startCamera();
+  }
+
+  function startFieldScanner(inputId) {
+    scanTargetInputId = inputId;
+    startCamera();
+  }
+
+  async function startCamera() {
     document.getElementById("status").innerText = "Starte Kamera...";
     document.getElementById("reader").style.display = "block";
 
@@ -222,6 +254,14 @@
   async function onScanSuccess(decodedText) {
     await html5QrcodeScanner.stop();
     document.getElementById("reader").style.display = "none";
+
+    if (scanTargetInputId) {
+      document.getElementById(scanTargetInputId).value = decodedText;
+      document.getElementById("status").innerText = "Code eingescannt!";
+      scanTargetInputId = null;
+      return;
+    }
+
     document.getElementById("status").innerText = "Lade Daten...";
 
     fetch(GOOGLE_SCRIPT_URL, {
@@ -282,6 +322,10 @@
   }
 
   function zurueckZurHauptansicht() {
+    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+      html5QrcodeScanner.stop();
+    }
+    document.getElementById("reader").style.display = "none";
     document.getElementById("artikelSection").style.display = "none";
     document.getElementById("newArtikelSection").style.display = "none";
     document.getElementById("adminSection").style.display = "block";
