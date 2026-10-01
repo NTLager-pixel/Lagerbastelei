@@ -129,7 +129,8 @@
 
     <button class="btn-in" onclick="buchen('EINLAGERUNG')">▲ Einlagern</button>
     <button class="btn-out" onclick="buchen('ENTNAHME')">▼ Entnehmen</button>
-    <button style="background:#6c757d; margin-top:20px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
+    <button style="background: #ffc107; color: #212529; margin-top: 10px;" onclick="loescheArtikel()">🗑️ Artikel löschen</button>
+    <button style="background:#6c757d; margin-top:10px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
   </div>
 
   <div id="status">Bereit</div>
@@ -486,6 +487,37 @@
     })
     .catch(err => {
       isBookingActive = false;
+      document.getElementById("status").innerText = "Fehler: " + err;
+    });
+  }
+
+  function loescheArtikel() {
+    if (!currentArtikel || !currentArtikel.artikelId) return;
+
+    if (!confirm("Soll der Artikel '" + currentArtikel.artikelname + "' wirklich gelöscht werden?")) {
+      return;
+    }
+
+    document.getElementById("status").innerText = "Lösche Artikel...";
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        adminPw: adminPassword,
+        action: "deleteArtikel",
+        artikelId: currentArtikel.artikelId
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById("status").innerText = "Artikel erfolgreich gelöscht!";
+        setTimeout(zurueckZurHauptansicht, 1500);
+      } else {
+        document.getElementById("status").innerText = "Fehler: " + (data.error || "Konnte nicht gelöscht werden.");
+      }
+    })
+    .catch(err => {
       document.getElementById("status").innerText = "Fehler: " + err;
     });
   }
