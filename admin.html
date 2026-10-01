@@ -15,6 +15,7 @@
     .btn-in { background: #28a745; }
     .btn-out { background: #dc3545; }
     .btn-scan { background: #17a2b8; padding: 10px; font-size: 14px; margin-top: 5px; margin-bottom: 10px; }
+    .btn-edit { background: #ffc107; color: #212529; }
     input { width: 100%; padding: 12px; font-size: 18px; text-align: center; margin-top: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
     
     #cameraModal {
@@ -117,6 +118,32 @@
     <button style="background:#6c757d; margin-top:10px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
   </div>
 
+  <!-- ARTIKEL BEARBEITEN MASKE -->
+  <div id="editArtikelSection" class="card" style="display:none;">
+    <h3>Artikel bearbeiten</h3>
+    
+    <div class="input-group">
+      <label>Artikelname *</label>
+      <input type="text" id="editArtName" placeholder="Artikelbezeichnung">
+      <button class="btn-scan" onclick="startCameraOCR('editArtName')">📷 Text von Foto/Kamera scannen</button>
+    </div>
+
+    <div class="input-group">
+      <label>Barcode / QR-Code</label>
+      <input type="text" id="editArtCode" placeholder="Code eingeben oder scannen">
+      <button class="btn-scan" onclick="startFieldScanner('editArtCode')">📷 Barcode / QR scannen</button>
+    </div>
+
+    <div class="input-group">
+      <label>Lagerplatz-ID *</label>
+      <input type="text" id="editArtLager" placeholder="Lagerplatz eingeben oder scannen">
+      <button class="btn-scan" onclick="startFieldScanner('editArtLager')">📷 Lagerplatz scannen</button>
+    </div>
+    
+    <button class="btn-in" onclick="speichereArtikelBearbeitung()">Änderungen Speichern</button>
+    <button style="background:#6c757d; margin-top:10px;" onclick="zurueckZumArtikel()">Abbrechen</button>
+  </div>
+
   <!-- ARTIKEL & BUCHUNG DISPLAY -->
   <div id="artikelSection" class="card" style="display:none;">
     <h3 id="artName">-</h3>
@@ -129,8 +156,8 @@
 
     <button class="btn-in" onclick="buchen('EINLAGERUNG')">▲ Einlagern</button>
     <button class="btn-out" onclick="buchen('ENTNAHME')">▼ Entnehmen</button>
-    <button style="background: #ffc107; color: #212529; margin-top: 10px;" onclick="loescheArtikel()">🗑️ Artikel löschen</button>
-    <button style="background:#6c757d; margin-top:10px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
+    <button class="btn-edit" onclick="zeigArtikelBearbeitenMaske()">✏️ Artikel bearbeiten</button>
+    <button style="background:#6c757d; margin-top:20px;" onclick="zurueckZurHauptansicht()">Abbrechen</button>
   </div>
 
   <div id="status">Bereit</div>
@@ -167,6 +194,7 @@
     document.getElementById("adminSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "none";
     document.getElementById("newArtikelSection").style.display = "none";
+    document.getElementById("editArtikelSection").style.display = "none";
     document.getElementById("status").innerText = "Bitte anmelden";
   }
 
@@ -385,6 +413,7 @@
     
     document.getElementById("adminSection").style.display = "none";
     document.getElementById("newArtikelSection").style.display = "none";
+    document.getElementById("editArtikelSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "block";
     document.getElementById("status").innerText = "Artikel geladen.";
   }
@@ -397,14 +426,33 @@
     
     document.getElementById("adminSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "none";
+    document.getElementById("editArtikelSection").style.display = "none";
     document.getElementById("newArtikelSection").style.display = "block";
     document.getElementById("status").innerText = "Neuen Artikel eingeben";
+  }
+
+  function zeigArtikelBearbeitenMaske() {
+    if (!currentArtikel) return;
+    document.getElementById("editArtName").value = currentArtikel.artikelname || "";
+    document.getElementById("editArtCode").value = currentArtikel.code || currentArtikel.barcode || "";
+    document.getElementById("editArtLager").value = currentArtikel.lagerplatzId || "";
+    
+    document.getElementById("artikelSection").style.display = "none";
+    document.getElementById("editArtikelSection").style.display = "block";
+    document.getElementById("status").innerText = "Artikel bearbeiten";
+  }
+
+  function zurueckZumArtikel() {
+    document.getElementById("editArtikelSection").style.display = "none";
+    document.getElementById("artikelSection").style.display = "block";
+    document.getElementById("status").innerText = "Artikel geladen.";
   }
 
   function zurueckZurHauptansicht() {
     stopCamera();
     document.getElementById("artikelSection").style.display = "none";
     document.getElementById("newArtikelSection").style.display = "none";
+    document.getElementById("editArtikelSection").style.display = "none";
     document.getElementById("adminSection").style.display = "block";
     document.getElementById("status").innerText = "Bereit";
   }
@@ -451,6 +499,53 @@
     });
   }
 
+  function speichereArtikelBearbeitung() {
+    const name = document.getElementById("editArtName").value.trim();
+    const code = document.getElementById("editArtCode").value.trim();
+    const lager = document.getElementById("editArtLager").value.trim();
+
+    if (!name || !lager) {
+      document.getElementById("status").innerText = "Name und Lagerplatz sind Pflichtfelder.";
+      return;
+    }
+
+    document.getElementById("status").innerText = "Speichere Änderungen...";
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        adminPw: adminPassword,
+        action: "updateArtikel",
+        artikelId: currentArtikel.artikelId,
+        artikelname: name,
+        code: code,
+        lagerplatzId: lager
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById("status").innerText = "Artikel erfolgreich aktualisiert!";
+        if (data.artikel) {
+          currentArtikel = data.artikel;
+        } else {
+          currentArtikel.artikelname = name;
+          currentArtikel.code = code;
+          currentArtikel.lagerplatzId = lager;
+          currentArtikel.lagerplatzName = lager;
+        }
+        setTimeout(() => {
+          zeigArtikelMaske(currentArtikel);
+        }, 1500);
+      } else {
+        document.getElementById("status").innerText = "Fehler: " + data.error;
+      }
+    })
+    .catch(err => {
+      document.getElementById("status").innerText = "Fehler: " + err;
+    });
+  }
+
   function buchen(typ) {
     if (isBookingActive) return;
 
@@ -487,37 +582,6 @@
     })
     .catch(err => {
       isBookingActive = false;
-      document.getElementById("status").innerText = "Fehler: " + err;
-    });
-  }
-
-  function loescheArtikel() {
-    if (!currentArtikel || !currentArtikel.artikelId) return;
-
-    if (!confirm("Soll der Artikel '" + currentArtikel.artikelname + "' wirklich gelöscht werden?")) {
-      return;
-    }
-
-    document.getElementById("status").innerText = "Lösche Artikel...";
-
-    fetch(GOOGLE_SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        adminPw: adminPassword,
-        action: "deleteArtikel",
-        artikelId: currentArtikel.artikelId
-      })
-    })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        document.getElementById("status").innerText = "Artikel erfolgreich gelöscht!";
-        setTimeout(zurueckZurHauptansicht, 1500);
-      } else {
-        document.getElementById("status").innerText = "Fehler: " + (data.error || "Konnte nicht gelöscht werden.");
-      }
-    })
-    .catch(err => {
       document.getElementById("status").innerText = "Fehler: " + err;
     });
   }
