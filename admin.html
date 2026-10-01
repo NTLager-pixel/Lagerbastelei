@@ -106,7 +106,7 @@
 
     <div class="input-group">
       <label>Startbestand</label>
-      <input type="number" id="newArtBestand" placeholder="Startbestand" value="0" min="0">
+      <input type="number" id="newArtBestand" placeholder="Startbestand eingeben" min="0">
     </div>
     
     <button class="btn-in" onclick="erstelleArtikel()">Speichern</button>
@@ -121,7 +121,7 @@
     <p>Aktueller Bestand: <strong id="artBestand" style="font-size: 24px; color: #007bff;">-</strong></p>
     
     <label for="menge">Menge:</label>
-    <input type="number" id="menge" value="1" min="1" inputmode="numeric">
+    <input type="number" id="menge" placeholder="Menge eingeben" min="1" inputmode="numeric">
 
     <button class="btn-in" onclick="buchen('EINLAGERUNG')">▲ Einlagern</button>
     <button class="btn-out" onclick="buchen('ENTNAHME')">▼ Entnehmen</button>
@@ -345,6 +345,7 @@
     document.getElementById("artLager").innerText = artikel.lagerplatzName || artikel.lagerplatzId;
     document.getElementById("artLagerDesc").innerText = artikel.lagerplatzBeschreibung || "";
     document.getElementById("artBestand").innerText = artikel.bestand;
+    document.getElementById("menge").value = "";
     
     document.getElementById("adminSection").style.display = "none";
     document.getElementById("newArtikelSection").style.display = "none";
@@ -353,6 +354,11 @@
   }
 
   function zeigNeuerArtikelMaske() {
+    document.getElementById("newArtName").value = "";
+    document.getElementById("newArtCode").value = "";
+    document.getElementById("newArtLager").value = "";
+    document.getElementById("newArtBestand").value = "";
+    
     document.getElementById("adminSection").style.display = "none";
     document.getElementById("artikelSection").style.display = "none";
     document.getElementById("newArtikelSection").style.display = "block";
@@ -371,7 +377,7 @@
     const name = document.getElementById("newArtName").value.trim();
     const code = document.getElementById("newArtCode").value.trim();
     const lager = document.getElementById("newArtLager").value.trim();
-    const bestand = document.getElementById("newArtBestand").value;
+    const bestand = document.getElementById("newArtBestand").value || "0";
 
     if (!name || !lager) {
       document.getElementById("status").innerText = "Name und Lagerplatz sind Pflichtfelder.";
@@ -398,7 +404,7 @@
         document.getElementById("newArtName").value = "";
         document.getElementById("newArtCode").value = "";
         document.getElementById("newArtLager").value = "";
-        document.getElementById("newArtBestand").value = "0";
+        document.getElementById("newArtBestand").value = "";
         setTimeout(zurueckZurHauptansicht, 1500);
       } else {
         document.getElementById("status").innerText = "Fehler: " + data.error;
@@ -411,10 +417,15 @@
 
   function buchen(typ) {
     if (isBookingActive) return;
-    isBookingActive = true;
+    
+    const menge = document.getElementById("menge").value.trim();
+    if (!menge || Number(menge) <= 0) {
+      document.getElementById("status").innerText = "Bitte eine gültige Menge eingeben.";
+      return;
+    }
 
+    isBookingActive = true;
     document.getElementById("status").innerText = "Speichere Buchung...";
-    const menge = document.getElementById("menge").value;
 
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
@@ -432,6 +443,7 @@
       if (data.success) {
         document.getElementById("status").innerText = "Gebucht! Neuer Bestand: " + data.result.bestand;
         document.getElementById("artBestand").innerText = data.result.bestand;
+        document.getElementById("menge").value = "";
         setTimeout(zurueckZurHauptansicht, 1500);
       } else {
         document.getElementById("status").innerText = "Fehler: " + data.error;
