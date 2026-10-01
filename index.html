@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lagerübersicht</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 15px; background: #f4f4f9; color: #333; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; text-align: center; }
+    button { width: 100%; padding: 15px; font-size: 18px; border: none; border-radius: 8px; color: white; margin-top: 10px; cursor: pointer; font-weight: bold; }
+    .btn-main { background: #007bff; }
+    input { width: 100%; padding: 12px; font-size: 18px; text-align: center; margin-top: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
+    #status { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; background: #e9ecef; }
+    .search-item { background: #fff; border: 1px solid #ddd; padding: 12px; margin-top: 8px; border-radius: 6px; text-align: left; }
+    .search-item div { font-size: 13px; color: #555; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ANMELDUNG -->
+  <div id="loginSection" class="card">
+    <h2>Lagerübersicht - Login</h2>
+    <p>Bitte Passwort eingeben:</p>
+    <input type="password" id="passwordInput" placeholder="Passwort" onkeyup="if(event.key==='Enter') login()">
+    <button class="btn-main" onclick="login()">Anmelden</button>
+  </div>
+
+  <!-- HAUPTBILDSCHIRM (ÜBERSICHT) -->
+  <div id="mainSection" class="card" style="display:none;">
+    <h2>Lagerbestand</h2>
+    <p id="sessionInfo" style="color: #28a745; font-size: 13px; font-weight: bold;"></p>
+
+    <label for="searchInput" style="font-weight: bold;">Artikel / Lagerplatz suchen:</label>
+    <input type="text" id="searchInput" placeholder="...Artikelbezeichnung, ID oder Platz" onkeyup="if(event.key==='Enter') artikelSuchen()">
+    <button class="btn-main" style="background:#6c757d;" onclick="artikelSuchen()">🔍 Suchen</button>
+    <button class="btn-main" onclick="alleAnzeigen()">📋 Alle Artikel anzeigen</button>
+
+    <div id="searchResults" style="margin-top: 15px;"></div>
+  </div>
+
+  <div id="status">Bereit</div>
+</div>
+
+<script>
+  const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx_-OuTgUy-ZvXdkd2rLwM-DlkKmF9NhIy_ns2o7TtiSq5AOI9OGMiM3mp8Wg2FTky/exec";
+  let activeToken = null;
+
+  window.onload = checkAuth;
+
+  function checkAuth() {
+    const storedToken = sessionStorage.getItem("authToken");
+    const authTime = sessionStorage.getItem("authTime");
+    const now = new Date().getTime();
+
+    if (storedToken && (now - authTime < 1800000)) {
+      verifyToken(storedToken);
+    } else {
+      lockApp();
+    }
+  }
+
+  function login() {
+    const pwd = document.getElementById("passwordInput").value.trim();
+    if (!pwd) return;
+    verifyToken(pwd);
+  }
+
+  function verifyToken(token) {
+    document.getElementById("status").innerText = "Prüfe Zugang...";
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "checkToken", secret: token })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success === true) {
+        activeToken = token;
+        sessionStorage.setItem("authToken", activeToken);
+        sessionStorage.setItem("authTime", new Date().getTime());
+
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainSection").style.display = "block";
+        document.getElementById("status").innerText = "Bereit";
+        document.getElementById("sessionInfo").innerText = "Zugang aktiv (30 Min.)";
+
+        alleAnzeigen();
+      } else {
+        lockApp();
+        document.getElementById("status").innerText = "Passwort falsch.";
+      }
+    })
+    .catch(() => {
+      lockApp();
+      document.getElementById("status").innerText = "Verbindungsfehler.";
+    });
+  }
+
+  function lockApp() {
+    sessionStorage.clear();
+    document.getElementById("loginSection").style.display = "block";
+    document.getElementById("mainSection").style.display = "none";
+  }
+
+  function alleAnzeigen() {
+    document.getElementById("searchInput").value = "";
+    artikelSuchen("*");
+  }
+
+  function artikelSuchen(overrideQuery) {
+    const query = overrideQuery || document.getElementById("searchInput").value.trim();
+    if (!query) return;
+
+    document.getElementById("status").innerText = "Lade Daten...";
+    document.getElementById("searchResults").innerHTML = "";
+
+    fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST",
+      body: JSON.stringify({ secret: activeToken, action: "suche", query: query })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success && data.treffer && data.treffer.length > 0) {
+        document.getElementById("status").innerText = data.treffer.length + " Artikel geladen.";
+        let html = "";
+        data.treffer.forEach(art => {
+          const descText = art.lagerplatzBeschreibung ? ` (${art.lagerplatzBeschreibung})` : "";
+          html += `
+            <div class="search-item">
+              <strong>${art.artikelname}</strong>
+              <div>Lagerplatz: ${art.lagerplatzName}${descText} | Bestand: <strong>${art.bestand}</strong></div>
+            </div>
+          `;
+        });
+        document.getElementById("searchResults").innerHTML = html;
+      } else {
+        document.getElementById("status").innerText = data.error || "Keine Artikel gefunden.";
+      }
+    })
+    .catch(err => {
+      document.getElementById("status").innerText = "Fehler: " + err;
+    });
+  }
+</script>
+
+</body>
+</html>
