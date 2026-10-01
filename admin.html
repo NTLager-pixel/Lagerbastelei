@@ -88,8 +88,9 @@
     <h3>Neuen Artikel anlegen</h3>
     
     <div class="input-group">
-      <label>Artikelname *</label>
-      <input type="text" id="newArtName" placeholder="Artikelbezeichnung">
+    <label>Artikelname *</label>
+    <input type="text" id="newArtName" placeholder="Artikelbezeichnung" capture="environment" accept="image/*">
+    <button class="btn-scan" onclick="startCameraOCR('newArtName')">📷 Text von Kamera scannen</button>
     </div>
 
     <div class="input-group">
