@@ -15,7 +15,6 @@
     .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     h2, h3 { text-align: center; margin-top: 0; color: #333; }
     
-    /* KAMERA DISPLAY OVERLAY FIX */
     #reader { 
       position: fixed;
       top: 50%;
@@ -60,7 +59,7 @@
 <body>
 
 <div class="container">
-  <h2>Werkzeugverwaltung</h2>
+  <h2>Material - / Werkzeugverwaltung</h2>
   <div id="status">Bereit</div>
 
   <!-- HAUPTANSICHT -->
@@ -179,7 +178,7 @@
     <input type="file" id="importFile" accept=".json" onchange="importDataJSON(event)">
   </div>
 
-  <!-- KAMERA DISPLAY OVERLAY -->
+  <!-- KAMERA DISPLAY -->
   <div id="reader"></div>
 
 </div>
