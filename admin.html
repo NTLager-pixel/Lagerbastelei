@@ -195,18 +195,23 @@ function sucheArtikelMitLagerplatz(suchtext) {
   const alleArtikel = getArtikelListe();
   const lagerplaetze = getLagerplaetze();
 
+  const mapArtikelData = (a) => {
+    const lager = lagerplaetze.find(l => String(l.lagerplatzId) === String(a.lagerplatzId));
+    return {
+      artikelId: a.artikelId,
+      artikelname: a.artikelname,
+      barcode: a.barcode,
+      qrcode: a.qrcode,
+      bestand: a.bestand,
+      mindestbestand: a.mindestbestand,
+      lagerplatzId: a.lagerplatzId,
+      lagerplatzName: lager ? lager.bezeichnung : a.lagerplatzId,
+      lagerplatzBeschreibung: lager ? lager.beschreibung : ''
+    };
+  };
+
   if (begriff === '*') {
-    return alleArtikel.map(a => {
-      const lager = lagerplaetze.find(l => String(l.lagerplatzId) === String(a.lagerplatzId));
-      return {
-        artikelId: a.artikelId,
-        artikelname: a.artikelname,
-        bestand: a.bestand,
-        lagerplatzId: a.lagerplatzId,
-        lagerplatzName: lager ? lager.bezeichnung : a.lagerplatzId,
-        lagerplatzBeschreibung: lager ? lager.beschreibung : ''
-      };
-    });
+    return alleArtikel.map(mapArtikelData);
   }
 
   // Suchbegriffe in einzelne Wörter zerlegen
@@ -236,17 +241,7 @@ function sucheArtikelMitLagerplatz(suchtext) {
         });
       });
     })
-    .map(a => {
-      const lager = lagerplaetze.find(l => String(l.lagerplatzId) === String(a.lagerplatzId));
-      return {
-        artikelId: a.artikelId,
-        artikelname: a.artikelname,
-        bestand: a.bestand,
-        lagerplatzId: a.lagerplatzId,
-        lagerplatzName: lager ? lager.bezeichnung : a.lagerplatzId,
-        lagerplatzBeschreibung: lager ? lager.beschreibung : ''
-      };
-    });
+    .map(mapArtikelData);
 }
 
 function levenshteinDistance(a, b) {
