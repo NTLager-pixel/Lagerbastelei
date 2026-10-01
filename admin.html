@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lager Admin-Interface</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- OCR Bibliothek für Texterkennung eingebunden -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 15px; background: #eef2f5; color: #333; }
     .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 15px; text-align: center; }
@@ -15,7 +17,6 @@
     .btn-scan { background: #17a2b8; padding: 10px; font-size: 14px; margin-top: 5px; margin-bottom: 10px; }
     input { width: 100%; padding: 12px; font-size: 18px; text-align: center; margin-top: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
     
-    /* KAMERA OVERLAY STYLES */
     #cameraModal {
       display: none;
       position: fixed;
@@ -79,6 +80,8 @@
   <div id="cameraModal">
     <div id="cameraContainer">
       <div id="reader"></div>
+      <!-- UNSICHTBARES INPUT FÜR SYSTEM-KAMERA OCR -->
+      <input type="file" id="ocrFileInput" accept="image/*" capture="environment" style="display:none" onchange="processOCRImage(this)">
       <button class="btn-out" onclick="stopCamera()" style="margin-top: 10px; padding: 10px;">Scanner Schließen</button>
     </div>
   </div>
@@ -88,9 +91,9 @@
     <h3>Neuen Artikel anlegen</h3>
     
     <div class="input-group">
-    <label>Artikelname *</label>
-    <input type="text" id="newArtName" placeholder="Artikelbezeichnung" capture="environment" accept="image/*">
-    <button class="btn-scan" onclick="startCameraOCR('newArtName')">📷 Text von Kamera scannen</button>
+      <label>Artikelname *</label>
+      <input type="text" id="newArtName" placeholder="Artikelbezeichnung">
+      <button class="btn-scan" onclick="startCameraOCR('newArtName')">📷 Text von Foto/Kamera scannen</button>
     </div>
 
     <div class="input-group">
@@ -262,6 +265,37 @@
     startCamera();
   }
 
+  // OCR TEXT SCANNER
+  function startCameraOCR(inputId) {
+    scanTargetInputId = inputId;
+    document.getElementById("ocrFileInput").click();
+  }
+
+  function processOCRImage(input) {
+    if (input.files && input.files[0]) {
+      const file = input.files[0];
+      document.getElementById("status").innerText = "Lese Text aus Bild... (Bitte warten)";
+      
+      Tesseract.recognize(
+        file,
+        'deu+eng',
+        { logger: m => console.log(m) }
+      ).then(({ data: { text } }) => {
+        const cleanedText = text.trim().replace(/[\r\n]+/g, " ");
+        if (cleanedText && scanTargetInputId) {
+          document.getElementById(scanTargetInputId).value = cleanedText;
+          document.getElementById("status").innerText = "Text erkannt und eingefügt!";
+        } else {
+          document.getElementById("status").innerText = "Kein Text erkannt.";
+        }
+        input.value = "";
+      }).catch(err => {
+        document.getElementById("status").innerText = "OCR Fehler: " + err;
+        input.value = "";
+      });
+    }
+  }
+
   async function startCamera() {
     document.getElementById("status").innerText = "Starte Kamera...";
     document.getElementById("cameraModal").style.display = "flex";
@@ -418,7 +452,7 @@
 
   function buchen(typ) {
     if (isBookingActive) return;
-    
+
     const menge = document.getElementById("menge").value.trim();
     if (!menge || Number(menge) <= 0) {
       document.getElementById("status").innerText = "Bitte eine gültige Menge eingeben.";
