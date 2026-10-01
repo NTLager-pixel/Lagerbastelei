@@ -12,7 +12,32 @@
     .btn-main { background: #007bff; }
     .btn-sub { background: #dc3545; }
     input { width: 100%; padding: 12px; font-size: 18px; text-align: center; margin-top: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 6px; }
-    #reader { width: 100%; max-width: 500px; margin: 0 auto 15px auto; display: none; }
+    
+    /* KAMERA OVERLAY STYLES */
+    #cameraModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    #cameraContainer {
+      width: 90%;
+      max-width: 450px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      box-sizing: border-box;
+    }
+    #reader { width: 100%; margin: 0 auto; }
+
     #status { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; background: #e9ecef; }
     .search-item { background: #fff; border: 1px solid #ddd; padding: 12px; margin-top: 8px; border-radius: 6px; text-align: left; cursor: pointer; }
     .search-item:hover { background: #e9ecef; }
@@ -44,8 +69,13 @@
     <div id="searchResults"></div>
   </div>
 
-  <!-- KAMERA DISPLAY -->
-  <div id="reader"></div>
+  <!-- KAMERA OVERLAY MODAL -->
+  <div id="cameraModal">
+    <div id="cameraContainer">
+      <div id="reader"></div>
+      <button class="btn-sub" onclick="stopScanner()" style="margin-top: 10px; padding: 10px;">Scanner Schließen</button>
+    </div>
+  </div>
 
   <!-- ARTIKEL & BUCHUNG DISPLAY -->
   <div id="artikelSection" class="card" style="display:none;">
@@ -55,7 +85,7 @@
     <p>Aktueller Bestand: <strong id="artBestand" style="font-size: 24px; color: #007bff;">-</strong></p>
     
     <label for="menge">Entnahmemenge:</label>
-    <input type="number" id="menge" value="1" min="1" inputmode="numeric">
+    <input type="number" id="menge" placeholder="Menge eingeben" min="1" inputmode="numeric">
 
     <button class="btn-sub" onclick="buchen('ENTNAHME')">▼ Entnehmen</button>
     <button id="btnAbbrechen" style="background:#6c757d; margin-top:20px;" onclick="zurueckZurSuche()">Abbrechen</button>
@@ -182,7 +212,7 @@
 
   async function startScanner() {
     document.getElementById("status").innerText = "Starte Kamera...";
-    document.getElementById("reader").style.display = "block";
+    document.getElementById("cameraModal").style.display = "flex";
 
     if (!html5QrcodeScanner) {
       html5QrcodeScanner = new Html5Qrcode("reader");
@@ -196,13 +226,21 @@
       );
       document.getElementById("status").innerText = "Scanner aktiv...";
     } catch (err) {
+      stopScanner();
       document.getElementById("status").innerText = "Kamera-Fehler: " + err;
     }
   }
 
+  async function stopScanner() {
+    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+      await html5QrcodeScanner.stop();
+    }
+    document.getElementById("cameraModal").style.display = "none";
+    document.getElementById("status").innerText = "Bereit";
+  }
+
   async function onScanSuccess(decodedText) {
-    await html5QrcodeScanner.stop();
-    document.getElementById("reader").style.display = "none";
+    await stopScanner();
     document.getElementById("status").innerText = "Lade Daten...";
 
     fetch(GOOGLE_SCRIPT_URL, {
@@ -248,6 +286,7 @@
     document.getElementById("artLager").innerText = artikel.lagerplatzName || artikel.lagerplatzId;
     document.getElementById("artLagerDesc").innerText = artikel.lagerplatzBeschreibung || "";
     document.getElementById("artBestand").innerText = artikel.bestand;
+    document.getElementById("menge").value = "";
     
     const btnEntnahme = document.querySelector(".btn-sub");
     if (btnEntnahme) btnEntnahme.style.display = "block";
@@ -258,6 +297,7 @@
   }
 
   function zurueckZurSuche() {
+    stopScanner();
     document.getElementById("artikelSection").style.display = "none";
     document.getElementById("scanSection").style.display = "block";
     document.getElementById("status").innerText = "Bereit";
@@ -265,14 +305,19 @@
 
   function buchen(typ) {
     if (isBookingActive) return;
+
+    const menge = document.getElementById("menge").value.trim();
+    if (!menge || Number(menge) <= 0) {
+      document.getElementById("status").innerText = "Bitte eine gültige Menge eingeben.";
+      return;
+    }
+
     isBookingActive = true;
 
     const btnEntnahme = document.querySelector(".btn-sub");
     if (btnEntnahme) btnEntnahme.style.display = "none";
 
     document.getElementById("status").innerText = "Speichere Buchung...";
-
-    const menge = document.getElementById("menge").value;
 
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
@@ -289,6 +334,7 @@
       if (data.success) {
         document.getElementById("status").innerText = "Gebucht! Neuer Bestand: " + data.result.bestand;
         document.getElementById("artBestand").innerText = data.result.bestand;
+        document.getElementById("menge").value = "";
         setTimeout(() => {
           isBookingActive = false;
           if (btnEntnahme) btnEntnahme.style.display = "block";
