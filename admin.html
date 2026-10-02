@@ -434,7 +434,7 @@
   function zeigArtikelBearbeitenMaske() {
     if (!currentArtikel) return;
     document.getElementById("editArtName").value = currentArtikel.artikelname || "";
-    document.getElementById("editArtCode").value = currentArtikel.code || currentArtikel.barcode || "";
+    document.getElementById("editArtCode").value = currentArtikel.qrcode || currentArtikel.barcode || "";
     document.getElementById("editArtLager").value = currentArtikel.lagerplatzId || "";
     
     document.getElementById("artikelSection").style.display = "none";
